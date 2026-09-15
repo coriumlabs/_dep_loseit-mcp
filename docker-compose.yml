@@ -1,20 +1,34 @@
+# Example: multi-tenant, Traefik-fronted deployment (as opposed to the simpler
+# single-account setup in the main README) — the actual shape we run in
+# production behind Cloudflare Tunnel + Traefik. Adapt the hostnames, network
+# name, and middleware references (cloudflarewarp@file, anthropic-ipallow@file,
+# loseit-basicauth@file, the myresolver certresolver) to your own setup; kept
+# as real working values here rather than placeholders since a concrete worked
+# example is more useful than a templated one.
 services:
   loseit-mcp:
     build: .
     image: loseit-mcp:local
-    ports:
-      - "8000:8000"
     environment:
-      # Credentials arrive per request; the container stores nothing.
       LOSEIT_MULTI_TENANT: "1"
-      PORT: "8000"
-      # Credential URLs, for clients that cannot send auth headers.
       LOSEIT_ENROLLMENT: "1"
-      # Seals and opens those URLs. Rotating it invalidates every issued URL.
-      # Generate with: loseit-mcp gen-secret
-      LOSEIT_URL_SECRET: "${LOSEIT_URL_SECRET:?set LOSEIT_URL_SECRET}"
-      # Enrollment is open by default. Uncomment to restrict it.
-      # LOSEIT_ENROLL_SECRET: "${LOSEIT_ENROLL_SECRET:-}"
+      LOSEIT_URL_SECRET: "${LOSEIT_URL_SECRET:?set in .env}"
+      LOSEIT_ENROLL_SECRET: "${LOSEIT_ENROLL_SECRET:?set in .env}"
+      # Includes the internal container:port too — a companion OAuth shim (see note
+      # at the bottom of this file) talks to this backend directly over the internal
+      # network rather than round-tripping through the public hostname, since that
+      # path is gated by anthropic-ipallow (only Anthropic's IPs), which a same-box
+      # server-to-server call doesn't satisfy.
+      LOSEIT_ALLOWED_HOSTS: "loseit-mcp.jwrc.me,lose_it_mcp-loseit-mcp-1:8000"
+      # Lose It!'s private frontend changes periodically, which rotates these two
+      # (see "When Lose It changes their API" in DEPLOYMENT.md). NOT permanent
+      # values -- re-derive your own from live traffic (capture the
+      # X-GWT-Permutation header and the 2nd string-table entry of a real
+      # /web/service POST) whenever the server_status tool reports
+      # loseit_reachable: false.
+      LOSEIT_STRONG_NAME: "${LOSEIT_STRONG_NAME:?set in .env, see comment above}"
+      LOSEIT_POLICY_HASH: "${LOSEIT_POLICY_HASH:?set in .env, see comment above}"
+      PORT: "8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4).status==200 else 1)"]
       interval: 30s
@@ -22,7 +36,46 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
-    # Nothing is written to disk, so the filesystem can stay read-only.
     read_only: true
+    # delete_entry (and possibly other tools) writes local state under ~/.config —
+    # not credential storage (that's still sealed-URL only, nothing persists there),
+    # but read_only:true blocks it outright. tmpfs keeps the rest of the filesystem
+    # genuinely read-only while giving this one path somewhere to write; ephemeral is
+    # fine since nothing here is meant to survive a restart per the app's own design.
+    tmpfs:
+      - /home/app/.config:size=10m,uid=1001,gid=1001
     security_opt:
       - no-new-privileges:true
+    networks:
+      - jwrc-me_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.loseit_mcp.rule=Host(`loseit-mcp.jwrc.me`)"
+      - "traefik.http.routers.loseit_mcp.entrypoints=websecure"
+      - "traefik.http.routers.loseit_mcp.tls=true"
+      - "traefik.http.routers.loseit_mcp.tls.certresolver=myresolver"
+      - "traefik.http.routers.loseit_mcp.middlewares=cloudflarewarp@file,anthropic-ipallow@file,loseit-basicauth@file"
+      - "traefik.http.services.loseit_mcp.loadbalancer.server.port=8000"
+      - "traefik.docker.network=jwrc-me_network"
+      # /enroll is meant for anyone signing up (or e.g. a Cloudflare Worker acting
+      # on their behalf), not just actual MCP-call traffic -- it inherited the wrong
+      # gate by default, since it lives on the same hostname as the main router
+      # above. This override wins on path (priority) and drops the IP-allowlist/
+      # basic-auth; LOSEIT_ENROLL_SECRET (the app's own X-Enroll-Secret header
+      # check) is the actual access control here instead.
+      - "traefik.http.routers.loseit_mcp_enroll.rule=Host(`loseit-mcp.jwrc.me`) && Path(`/enroll`)"
+      - "traefik.http.routers.loseit_mcp_enroll.entrypoints=websecure"
+      - "traefik.http.routers.loseit_mcp_enroll.tls=true"
+      - "traefik.http.routers.loseit_mcp_enroll.tls.certresolver=myresolver"
+      - "traefik.http.routers.loseit_mcp_enroll.middlewares=cloudflarewarp@file"
+      - "traefik.http.routers.loseit_mcp_enroll.priority=1000"
+      - "traefik.http.routers.loseit_mcp_enroll.service=loseit_mcp"
+
+# If you're pointing a Claude custom connector at this server directly, you'll
+# also need something in front that satisfies Claude's OAuth/DCR requirement --
+# this server has no OAuth of its own by design (see DEPLOYMENT.md). That's a
+# separate concern from running loseit-mcp itself, so it isn't included here.
+
+networks:
+  jwrc-me_network:
+    external: true

@@ -307,8 +307,7 @@ def build_server(
             "Log a food by its exact nutrition values, without needing a match in "
             "the food database. Use this for restaurant meals, homemade dishes, or "
             "anything where you know the calories and macros but search_food has no "
-            "good match. Values are per serving. Note: saturated_fat_g cannot "
-            "currently be recorded and is reported back under `ignored_nutrients`."
+            "good match. Values are per serving."
         )
     )
     def log_custom_food(
@@ -325,7 +324,7 @@ def build_server(
         carb_g: Annotated[float | None, Field(description="Carbohydrate in grams.")] = None,
         fat_g: Annotated[float | None, Field(description="Total fat in grams.")] = None,
         saturated_fat_g: Annotated[
-            float | None, Field(description="Saturated fat in grams. Not currently recorded.")
+            float | None, Field(description="Saturated fat in grams.")
         ] = None,
         fiber_g: Annotated[float | None, Field(description="Fiber in grams.")] = None,
         sugar_g: Annotated[float | None, Field(description="Sugar in grams.")] = None,

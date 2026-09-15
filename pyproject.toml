@@ -30,7 +30,7 @@ build-backend = "hatchling.build"
 packages = ["src/loseit_mcp"]
 
 [tool.uv.sources]
-lose-it = { git = "https://github.com/phitoduck/lose-it" }
+lose-it = { git = "https://github.com/coriumlabs/_dep_lose-it", rev = "b35ccb8bf51595dea05ea2c4c587f100911e7130" }  # includes the saturated-fat allow-list fix, not yet upstreamed
 
 [dependency-groups]
 dev = [
