@@ -50,5 +50,5 @@ jobs:
             --title "Bump lose-it dependency to $LATEST" \
             --body "Automated bump of the lose-it git dependency pin to the latest commit on coriumlabs/_dep_lose-it main.
 
-Review the diff, then merge to deploy. This does not rebuild/redeploy the running container by itself." \
+Review the diff, then merge to cl_deploy. This does not rebuild/redeploy the running container by itself." \
             --head "$branch"
