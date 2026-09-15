@@ -431,7 +431,7 @@ wheels = [
 [[package]]
 name = "lose-it"
 version = "0.8.5"
-source = { git = "https://github.com/coriumlabs/_dep_lose-it?rev=b35ccb8bf51595dea05ea2c4c587f100911e7130#b35ccb8bf51595dea05ea2c4c587f100911e7130" }
+source = { git = "https://github.com/coriumlabs/_dep_lose-it?rev=79e24dc749b405eceaf78f2bd5c3fe7f03bdb796#79e24dc749b405eceaf78f2bd5c3fe7f03bdb796" }
 dependencies = [
     { name = "browser-cookie3" },
     { name = "httpx" },
@@ -467,7 +467,7 @@ dev = [
 requires-dist = [
     { name = "cryptography", specifier = ">=49.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "lose-it", git = "https://github.com/coriumlabs/_dep_lose-it?rev=b35ccb8bf51595dea05ea2c4c587f100911e7130" },
+    { name = "lose-it", git = "https://github.com/coriumlabs/_dep_lose-it?rev=79e24dc749b405eceaf78f2bd5c3fe7f03bdb796" },
     { name = "mcp", specifier = ">=1.2.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
 ]
