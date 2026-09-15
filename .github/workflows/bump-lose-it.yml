@@ -25,7 +25,7 @@ jobs:
         id: pin
         run: |
           current=$(grep -oP '(?<=_dep_lose-it", rev = ")[a-f0-9]+' pyproject.toml)
-          latest=$(git ls-remote https://github.com/coriumlabs/_dep_lose-it.git refs/heads/main | cut -f1)
+          latest=$(git ls-remote https://github.com/coriumlabs/_dep_lose-it.git refs/heads/deploy | cut -f1)
           echo "current=$current" >> "$GITHUB_OUTPUT"
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
 
