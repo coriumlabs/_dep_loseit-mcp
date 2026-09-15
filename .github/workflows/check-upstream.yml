@@ -1,0 +1,69 @@
+name: Check upstream (cabird/loseit-mcp)
+
+# Notification only, never auto-merges -- same reasoning as the lose-it fork's
+# equivalent workflow: whether a rebase against upstream is safe needs a human
+# to look at it.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          git remote add upstream https://github.com/cabird/loseit-mcp.git
+          git fetch upstream main
+          base=$(git merge-base HEAD upstream/main)
+          behind=$(git rev-list --count "$base"..upstream/main)
+          echo "behind=$behind" >> "$GITHUB_OUTPUT"
+          echo "Behind by $behind commit(s)."
+
+      - name: Open or update tracking issue
+        if: steps.check.outputs.behind != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const behind = '${{ steps.check.outputs.behind }}';
+            const title = 'Upstream cabird/loseit-mcp has new commits';
+            const body = [
+              `cabird/loseit-mcp is ${behind} commit(s) ahead of where this fork last synced.`,
+              '',
+              'Run `scripts/sync-upstream.sh` locally to rebase our patches on top and review before pushing.',
+              '',
+              'Compare: https://github.com/cabird/loseit-mcp/commits/main',
+            ].join('\n');
+
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+            });
+            const existing = open.data.find((i) => i.title === title);
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+              });
+            }

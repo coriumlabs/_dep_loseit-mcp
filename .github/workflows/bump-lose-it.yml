@@ -1,0 +1,54 @@
+name: Bump lose-it dependency
+
+# Auto-opens a PR (never auto-merges) when coriumlabs/_dep_lose-it's main has
+# moved past our current pin. Safe to fully automate the PR creation here,
+# unlike the upstream-drift checks: this is our own fork moving, not a foreign
+# repo's changes we haven't reviewed. Only first-party actions/CLI used below
+# (no third-party Action in the dependency chain for something that pushes
+# commits and opens PRs).
+on:
+  schedule:
+    - cron: "0 7 * * 1" # weekly, an hour after the lose-it upstream check
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check current vs. latest fork commit
+        id: pin
+        run: |
+          current=$(grep -oP '(?<=_dep_lose-it", rev = ")[a-f0-9]+' pyproject.toml)
+          latest=$(git ls-remote https://github.com/coriumlabs/_dep_lose-it.git refs/heads/main | cut -f1)
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Bump, commit, and open PR
+        if: steps.pin.outputs.current != steps.pin.outputs.latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT: ${{ steps.pin.outputs.current }}
+          LATEST: ${{ steps.pin.outputs.latest }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          branch="auto/bump-lose-it-${LATEST:0:7}"
+          git checkout -b "$branch"
+          sed -i "s/$CURRENT/$LATEST/" pyproject.toml
+          pip install -q uv
+          uv lock
+          git add pyproject.toml uv.lock
+          git commit -m "chore: bump lose-it to $LATEST"
+          git push origin "$branch"
+          gh pr create \
+            --title "Bump lose-it dependency to $LATEST" \
+            --body "Automated bump of the lose-it git dependency pin to the latest commit on coriumlabs/_dep_lose-it main.
+
+Review the diff, then merge to deploy. This does not rebuild/redeploy the running container by itself." \
+            --head "$branch"
