@@ -9,7 +9,7 @@
 set -euo pipefail
 
 FORK_URL="https://github.com/coriumlabs/_dep_lose-it.git"
-FORK_BRANCH="deploy"
+FORK_BRANCH="cl_deploy"
 
 current=$(grep -oP '(?<=_dep_lose-it", rev = ")[a-f0-9]+' pyproject.toml)
 latest=$(git ls-remote "$FORK_URL" "refs/heads/$FORK_BRANCH" | cut -f1)
